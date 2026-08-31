@@ -89,10 +89,19 @@ async function transcribe(audio: Float32Array) {
   // 30s sliding-window chunking with 5s stride keeps long recordings from
   // blowing past the model's ~30s attention window while avoiding word
   // boundary artifacts at chunk edges.
+  //
+  // Whisper's encoder always operates on a fixed 30s window; a short clip
+  // gets padded internally, and the decoder can fall into a loop repeating
+  // the last phrase over that padded silence ("Hello? Hello? Hello?...").
+  // `no_repeat_ngram_size` forbids repeating any 3-token sequence it has
+  // already produced, which directly kills that loop; `repetition_penalty`
+  // discourages the same tokens more generally as a second line of defense.
   const result = await transcriber(audio, {
     chunk_length_s: 30,
     stride_length_s: 5,
     return_timestamps: true,
+    no_repeat_ngram_size: 3,
+    repetition_penalty: 1.3,
     streamer
   });
 

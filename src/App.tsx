@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Header } from './components/Header';
 import { RecordButton } from './components/RecordButton';
 import { LevelMeter } from './components/LevelMeter';
@@ -18,6 +18,17 @@ export default function App() {
   const [editedText, setEditedText] = useState('');
   const [createdAt, setCreatedAt] = useState(Date.now());
   const [decodeError, setDecodeError] = useState<string | null>(null);
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
+  const recordingUrlRef = useRef<string | null>(null);
+
+  const revokeRecordingUrl = useCallback(() => {
+    if (recordingUrlRef.current) {
+      URL.revokeObjectURL(recordingUrlRef.current);
+      recordingUrlRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => revokeRecordingUrl(), [revokeRecordingUrl]);
 
   const modelBusy = transcriber.stage === 'downloading' || transcriber.stage === 'booting';
 
@@ -25,6 +36,10 @@ export default function App() {
     if (recorder.state === 'recording') {
       const blob = await recorder.stop();
       if (!blob) return;
+      revokeRecordingUrl();
+      const url = URL.createObjectURL(blob);
+      recordingUrlRef.current = url;
+      setRecordingUrl(url);
       setCreatedAt(Date.now());
       setView('editor');
       try {
@@ -37,14 +52,16 @@ export default function App() {
       setDecodeError(null);
       await recorder.start();
     }
-  }, [recorder, transcriber]);
+  }, [recorder, transcriber, revokeRecordingUrl]);
 
   const handleStartOver = useCallback(() => {
     transcriber.reset();
     recorder.discard();
+    revokeRecordingUrl();
+    setRecordingUrl(null);
     setEditedText('');
     setView('record');
-  }, [transcriber, recorder]);
+  }, [transcriber, recorder, revokeRecordingUrl]);
 
   const displayedText = transcriber.stage === 'transcribing' ? transcriber.partialText : editedText || transcriber.fullText;
 
@@ -101,6 +118,12 @@ export default function App() {
               modelProgress={transcriber.modelProgress}
               lowStorageWarning={transcriber.lowStorageWarning}
             />
+
+            {recordingUrl && (
+              <div className="rounded-xl border hairline bg-ink-900/40 p-3">
+                <audio controls src={recordingUrl} className="w-full" aria-label="Playback of your recording" />
+              </div>
+            )}
 
             {(decodeError || transcriber.errorMessage) && (
               <p className="text-sm text-signal-rec">{decodeError ?? transcriber.errorMessage}</p>

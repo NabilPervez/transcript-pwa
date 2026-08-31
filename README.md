@@ -69,4 +69,3 @@ Dark editorial theme: Cormorant Garamond for display type, Inter for UI
 and body text, a muted gold (`#c9a55c`) accent against near-black
 (`#0b0b0d`), defined in `tailwind.config.js` under the `ink` / `gilt`
 palettes.
-# transcript-pwa
